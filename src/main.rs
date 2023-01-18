@@ -54,6 +54,7 @@ struct Size {
 }
 
 struct GrowthEvent;
+struct GameOverEvent;
 
 #[derive(Default, Resource)]
 struct LastTailPosition(Option<Position>);
@@ -191,6 +192,7 @@ fn snake_movement(
     mut heads: Query<(Entity, &SnakeHead)>,
     mut positions: Query<&mut Position>,
     mut last_tail_position: ResMut<LastTailPosition>,
+    mut game_over_evw: EventWriter<GameOverEvent>,
 ) {
     let heads = heads.iter_mut().next();
     if heads.is_none() {
@@ -208,6 +210,13 @@ fn snake_movement(
         Direction::Down => head_pos.y -= 1,
         Direction::Up => head_pos.y += 1,
     };
+    if head_pos.x < 0
+        || head_pos.y < 0
+        || head_pos.x as u32 >= ARENA_WIDTH
+        || head_pos.y as u32 >= ARENA_HEIGHT
+    {
+        game_over_writer.send(GameOverEvent);
+    }
     segment_positions
         .iter()
         .zip(segments.iter().skip(1))
@@ -215,6 +224,21 @@ fn snake_movement(
             *positions.get_mut(*segment).unwrap() = *pos;
         });
     *last_tail_position = LastTailPosition(Some(*segment_positions.last().unwrap()));
+}
+
+fn game_over(
+    mut cmds: Commands,
+    mut reader: EventReader<GameOverEvent>,
+    segments_res: ResMut<SnakeSegments>,
+    food: Query<Entity, With<Food>>,
+    segments: Query<Entity, With<SnakeSegments>>,
+) {
+    if reader.iter().next().is_some() {
+        for ent in food.iter().chain(segments.iter()) {
+            cmds.entity(ent).despawn();
+        }
+        spawn_snake(cmds, segments_res);
+    }
 }
 
 fn spawn_segment(mut cmds: Commands, pos: Position) -> Entity {
@@ -258,6 +282,7 @@ fn main() {
                 .with_system(snake_growth.after(snake_eating)),
         )
         .add_event::<GrowthEvent>()
+        .add_event::<GameOverEvent>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 title: "Snake!".to_string(),

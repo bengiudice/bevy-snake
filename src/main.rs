@@ -1,45 +1,30 @@
 use bevy::prelude::*;
-fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
-        .add_startup_system(setup_camera)
-        .add_startup_system(spawn_snake)
-        .add_system(snake_movement)
-        .add_system_set_to_stage(
-            CoreStage::PostUpdate,
-            SystemSet::new()
-                .with_system(position_translation)
-                .with_system(size_scaling),
-        )
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "Snake!".to_string(),
-                width: 500.0,
-                height: 500.0,
-                ..default()
-            },
-            ..default()
-        }))
-        .run();
-}
-fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-}
-#[derive(Component)]
-struct SnakeHead;
+use bevy::time::FixedTimestep;
+use rand::prelude::random;
+
 const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
+const FOOD_COLOR: Color = Color::rgb(1.0, 0.0, 1.0);
 const ARENA_WIDTH: u32 = 10;
 const ARENA_HEIGHT: u32 = 10;
+
+#[derive(Component)]
+struct SnakeHead;
+
+#[derive(Component)]
+struct Food;
+
 #[derive(Component, Clone, Copy, PartialEq, Eq)]
 struct Position {
     x: i32,
     y: i32,
 }
+
 #[derive(Component)]
 struct Size {
     width: f32,
     height: f32,
 }
+
 impl Size {
     pub fn square(x: f32) -> Self {
         Self {
@@ -48,6 +33,28 @@ impl Size {
         }
     }
 }
+
+fn food_spawner(mut commands: Commands) {
+    commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                color: FOOD_COLOR,
+                ..default()
+            },
+            ..default()
+        })
+        .insert(Food)
+        .insert(Position {
+            x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
+            y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
+        })
+        .insert(Size::square(0.8));
+}
+
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+}
+
 fn spawn_snake(mut commands: Commands) {
     commands
         .spawn(SpriteBundle {
@@ -65,6 +72,7 @@ fn spawn_snake(mut commands: Commands) {
         .insert(Position { x: 3, y: 3 })
         .insert(Size::square(0.8));
 }
+
 fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform)>) {
     let window = windows.get_primary().unwrap();
     for (sprite, mut tx) in q.iter_mut() {
@@ -75,6 +83,7 @@ fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform)>) {
         );
     }
 }
+
 fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Transform)>) {
     fn convert(pos: f32, bound_window: f32, bound_game: f32) -> f32 {
         let tile_size = bound_window / bound_game;
@@ -89,6 +98,7 @@ fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Tra
         );
     }
 }
+
 fn snake_movement(
     key: Res<Input<KeyCode>>,
     mut head_positions: Query<&mut Position, With<SnakeHead>>,
@@ -107,4 +117,33 @@ fn snake_movement(
             pos.y += 1;
         }
     }
+}
+
+fn main() {
+    App::new()
+        .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        .add_startup_system(setup_camera)
+        .add_startup_system(spawn_snake)
+        .add_system(snake_movement)
+        .add_system_set_to_stage(
+            CoreStage::PostUpdate,
+            SystemSet::new()
+                .with_system(position_translation)
+                .with_system(size_scaling),
+        )
+        .add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(1.0))
+                .with_system(food_spawner),
+        )
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "Snake!".to_string(),
+                width: 500.0,
+                height: 500.0,
+                ..default()
+            },
+            ..default()
+        }))
+        .run();
 }

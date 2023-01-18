@@ -215,7 +215,10 @@ fn snake_movement(
         || head_pos.x as u32 >= ARENA_WIDTH
         || head_pos.y as u32 >= ARENA_HEIGHT
     {
-        game_over_writer.send(GameOverEvent);
+        game_over_evw.send(GameOverEvent);
+    }
+    if segment_positions.contains(&head_pos) {
+        game_over_evw.send(GameOverEvent);
     }
     segment_positions
         .iter()
@@ -231,7 +234,7 @@ fn game_over(
     mut reader: EventReader<GameOverEvent>,
     segments_res: ResMut<SnakeSegments>,
     food: Query<Entity, With<Food>>,
-    segments: Query<Entity, With<SnakeSegments>>,
+    segments: Query<Entity, With<SnakeSegment>>,
 ) {
     if reader.iter().next().is_some() {
         for ent in food.iter().chain(segments.iter()) {
@@ -281,6 +284,7 @@ fn main() {
                 .with_system(snake_eating.after(snake_movement))
                 .with_system(snake_growth.after(snake_eating)),
         )
+        .add_system(game_over.after(snake_movement))
         .add_event::<GrowthEvent>()
         .add_event::<GameOverEvent>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {

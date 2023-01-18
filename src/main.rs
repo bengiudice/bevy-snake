@@ -53,12 +53,44 @@ struct Size {
     height: f32,
 }
 
+struct GrowthEvent;
+
+#[derive(Default, Resource)]
+struct LastTailPosition(Option<Position>);
+
 impl Size {
     pub fn square(x: f32) -> Self {
         Self {
             width: x,
             height: x,
         }
+    }
+}
+
+fn snake_eating(
+    mut cmds: Commands,
+    mut grow_evw: EventWriter<GrowthEvent>,
+    food_pos: Query<(Entity, &Position), With<Food>>,
+    head_pos: Query<&Position, With<SnakeHead>>,
+) {
+    for head in head_pos.iter() {
+        for (ent, food) in food_pos.iter() {
+            if food == head {
+                cmds.entity(ent).despawn();
+                grow_evw.send(GrowthEvent);
+            }
+        }
+    }
+}
+
+fn snake_growth(
+    cmds: Commands,
+    last_tail_position: Res<LastTailPosition>,
+    mut segments: ResMut<SnakeSegments>,
+    mut growth_ev: EventReader<GrowthEvent>,
+) {
+    if growth_ev.iter().next().is_some() {
+        segments.push(spawn_segment(cmds, last_tail_position.0.unwrap()));
     }
 }
 
@@ -158,6 +190,7 @@ fn snake_movement(
     segments: ResMut<SnakeSegments>,
     mut heads: Query<(Entity, &SnakeHead)>,
     mut positions: Query<&mut Position>,
+    mut last_tail_position: ResMut<LastTailPosition>,
 ) {
     let heads = heads.iter_mut().next();
     if heads.is_none() {
@@ -181,6 +214,7 @@ fn snake_movement(
         .for_each(|(pos, segment)| {
             *positions.get_mut(*segment).unwrap() = *pos;
         });
+    *last_tail_position = LastTailPosition(Some(*segment_positions.last().unwrap()));
 }
 
 fn spawn_segment(mut cmds: Commands, pos: Position) -> Entity {
@@ -201,6 +235,7 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .insert_resource(SnakeSegments::default())
+        .insert_resource(LastTailPosition::default())
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
         .add_system_set_to_stage(
@@ -218,8 +253,11 @@ fn main() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.15))
-                .with_system(snake_movement),
+                .with_system(snake_movement)
+                .with_system(snake_eating.after(snake_movement))
+                .with_system(snake_growth.after(snake_eating)),
         )
+        .add_event::<GrowthEvent>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 title: "Snake!".to_string(),

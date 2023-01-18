@@ -154,18 +154,33 @@ fn snake_movement_input(key: Res<Input<KeyCode>>, mut heads: Query<&mut SnakeHea
     }
 }
 
-fn snake_movement(mut heads: Query<(&mut Position, &SnakeHead)>) {
+fn snake_movement(
+    segments: ResMut<SnakeSegments>,
+    mut heads: Query<(Entity, &SnakeHead)>,
+    mut positions: Query<&mut Position>,
+) {
     let heads = heads.iter_mut().next();
     if heads.is_none() {
         return;
     }
-    let (mut head_pos, head) = heads.unwrap();
+    let (head_entity, head) = heads.unwrap();
+    let segment_positions = segments
+        .iter()
+        .map(|e| *positions.get_mut(*e).unwrap())
+        .collect::<Vec<Position>>();
+    let mut head_pos = positions.get_mut(head_entity).unwrap();
     match &head.direction {
         Direction::Left => head_pos.x -= 1,
         Direction::Right => head_pos.x += 1,
         Direction::Down => head_pos.y -= 1,
         Direction::Up => head_pos.y += 1,
-    }
+    };
+    segment_positions
+        .iter()
+        .zip(segments.iter().skip(1))
+        .for_each(|(pos, segment)| {
+            *positions.get_mut(*segment).unwrap() = *pos;
+        });
 }
 
 fn spawn_segment(mut cmds: Commands, pos: Position) -> Entity {

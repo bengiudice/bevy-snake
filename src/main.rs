@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 fn main() {
     App::new()
+        .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
         .add_system(snake_movement)
@@ -10,7 +11,15 @@ fn main() {
                 .with_system(position_translation)
                 .with_system(size_scaling),
         )
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "Snake!".to_string(),
+                width: 500.0,
+                height: 500.0,
+                ..default()
+            },
+            ..default()
+        }))
         .run();
 }
 fn setup_camera(mut commands: Commands) {
@@ -80,7 +89,10 @@ fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Tra
         );
     }
 }
-fn snake_movement(key: Res<Input<KeyCode>>, mut head_positions: Query<&mut Position, With<SnakeHead>>) {
+fn snake_movement(
+    key: Res<Input<KeyCode>>,
+    mut head_positions: Query<&mut Position, With<SnakeHead>>,
+) {
     for mut pos in head_positions.iter_mut() {
         if key.pressed(KeyCode::Left) {
             pos.x -= 1;

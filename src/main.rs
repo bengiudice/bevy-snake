@@ -54,6 +54,7 @@ struct Size {
 }
 
 struct GrowthEvent;
+
 struct GameOverEvent;
 
 #[derive(Default, Resource)]

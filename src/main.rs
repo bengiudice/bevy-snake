@@ -28,8 +28,19 @@ fn spawn_snake(mut commands: Commands) {
         })
         .insert(SnakeHead);
 }
-fn snake_movement(mut head_positions: Query<(&SnakeHead, &mut Transform)>) {
-    for (_head, mut transform) in head_positions.iter_mut() {
-        transform.translation.y += 2.0;
+fn snake_movement(key: Res<Input<KeyCode>>, mut heads: Query<&mut Transform, With<SnakeHead>>) {
+    for mut tx in heads.iter_mut() {
+        if key.pressed(KeyCode::Left) {
+            tx.translation.x -= 2.0;
+        }
+        if key.pressed(KeyCode::Right) {
+            tx.translation.x += 2.0;
+        }
+        if key.pressed(KeyCode::Down) {
+            tx.translation.y -= 2.0;
+        }
+        if key.pressed(KeyCode::Up) {
+            tx.translation.y += 2.0;
+        }
     }
 }
